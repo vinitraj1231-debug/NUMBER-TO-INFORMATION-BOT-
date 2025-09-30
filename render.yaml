@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: numinfo-bot
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: MONGO_URL
+        sync: false

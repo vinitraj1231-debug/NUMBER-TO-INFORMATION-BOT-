@@ -2,8 +2,9 @@ services:
   - type: web
     name: numinfo-bot
     env: python
-    plan: free
-    buildCommand: pip install -r requirements.txt
+    plan: starter
+    pythonVersion: "3.11"
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: python main.py
     envVars:
       - key: BOT_TOKEN

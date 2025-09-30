@@ -2,3 +2,5 @@ python-telegram-bot==20.4
 aiohttp==3.8.5
 python-dotenv==1.0.0
 pymongo==4.6.1
+cchardet==2.1.7
+aiodns==3.0.0

@@ -137,7 +137,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return # क्रेडिट खत्म होने पर यहाँ रुक जाएँ
 
     if not context.args:
-        await update.message.reply_text("⚠️ कृपया `/search` के बाद एक नंबर दें। उदाहरण: `/search 9798423774`")
+        await update.message.reply_text("⚠️ कृपया `/search` के बाद एक नंबर दें। उदाहरण: `/search 9777777774`")
         return
 
     num = context.args[0]

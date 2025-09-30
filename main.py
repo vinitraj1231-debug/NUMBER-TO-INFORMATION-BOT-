@@ -1,8 +1,8 @@
 import os
 import requests
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatMember
-from telegram.ext import Application, CommandHandler, ContextTypes, filters
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, filters
 from dotenv import load_dotenv
 
 # Logging सेटअप करें
@@ -17,25 +17,28 @@ load_dotenv()
 # --- CONFIGURATION ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 API_BASE_URL = os.getenv("API_BASE_URL", "https://freeapi.frappeash.workers.dev/")
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
+# सुनिश्चित करें कि ADMIN_ID एक integer है
+try:
+    ADMIN_ID = int(os.getenv("ADMIN_ID"))
+except (TypeError, ValueError):
+    ADMIN_ID = None
+    logger.error("ADMIN_ID is missing or invalid in .env file. Broadcast command will not work.")
+
 DAILY_CREDITS_LIMIT = 3
 REFERRAL_CREDITS = 3
 SUPPORT_CHANNEL_LINK = "https://t.me/narzoxbot" 
 # ---------------------
 
-# डेटाबेस: बड़े स्केल के लिए, इसकी जगह Redis/PostgreSQL का उपयोग करें!
+# --- GLOBAL STORAGE (Persistence के लिए डेटाबेस का उपयोग करें) ---
 USER_CREDITS = {} 
 USERS = set() 
-
-# एक सेट जो उन रेफरल IDs को ट्रैक करता है जिन्हें पहले ही क्रेडिट मिल चुका है।
-# यह एक ही रेफरल पर बार-बार क्रेडिट मिलने से रोकता है। (referrer_id, referred_user_id)
 REFERRED_TRACKER = set() 
+# -----------------------------------------------------------------
 
 def get_credits(user_id: int) -> int:
     """यूजर के क्रेडिट्स प्राप्त करता है, अगर पहली बार है तो डिफ़ॉल्ट देता है।"""
-    # यहाँ हम डेली रीसेट लॉजिक को सरल रखने के लिए क्रेडिट्स को 0 होने पर रीसेट कर रहे हैं।
+    # सरल दैनिक रीसेट लॉजिक
     if user_id not in USER_CREDITS or USER_CREDITS.get(user_id, 0) <= 0:
-        # अगर क्रेडिट 0 या उससे कम है, तो डेली लिमिट पर सेट करें (यह मानकर कि यह नया दिन है)
         USER_CREDITS[user_id] = DAILY_CREDITS_LIMIT
     
     return USER_CREDITS.get(user_id, DAILY_CREDITS_LIMIT)
@@ -62,11 +65,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             referrer_id = int(context.args[0].split('_')[1])
             referral_key = (referrer_id, user_id)
             
+            # सुनिश्चित करें: 1. रेफरर खुद नहीं है। 2. यह रेफरल पहले ट्रैक नहीं किया गया है।
             if referrer_id != user_id and referral_key not in REFERRED_TRACKER:
-                # रेफरर को क्रेडिट दें
+                
+                # ***क्रेडिट दें और ट्रैक करें***
                 current_credits = USER_CREDITS.get(referrer_id, DAILY_CREDITS_LIMIT)
                 USER_CREDITS[referrer_id] = current_credits + REFERRAL_CREDITS
-                REFERRED_TRACKER.add(referral_key) # ट्रैक करें कि क्रेडिट दिया गया है
+                REFERRED_TRACKER.add(referral_key) 
                 
                 # रेफरर को नोटिफिकेशन भेजें
                 await context.bot.send_message(
@@ -78,8 +83,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 
                 await update.message.reply_text(f"धन्यवाद! आपने रेफरल के ज़रिए बॉट शुरू किया है। आपको {DAILY_CREDITS_LIMIT} शुरुआती क्रेडिट मिले हैं।")
             elif referral_key in REFERRED_TRACKER:
-                 # अगर पहले ही क्रेडिट मिल चुका है
-                 await update.message.reply_text("आपने पहले ही इस रेफरल के लिए क्रेडिट कमा लिया है।")
+                 # अगर यह यूजर पहले ही इस रेफरल से स्टार्ट कर चुका है, तो कोई क्रेडिट नहीं।
+                 await update.message.reply_text("आपने पहले ही इस रेफरल के ज़रिए बॉट शुरू कर दिया है। कोई अतिरिक्त क्रेडिट नहीं मिला।")
 
         except Exception as e:
             logger.error(f"Referral Error: {e}")
@@ -92,14 +97,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     keyboard = [
         [
             InlineKeyboardButton("🔍 जानकारी खोजें", switch_inline_query_current_chat="/search "),
-            InlineKeyboardButton(f"🎁 {REFERRAL_CREDITS} क्रेडिट कमाएँ", url=get_referral_link(bot_username, user_id))
+            InlineKeyboardButton(f"🎁 {REFERRAL_CREDITS} क्रेडिट कमाएँ", callback_data='get_referral_link') # <-- बदला गया
         ],
         [
             InlineKeyboardButton("💰 मेरे क्रेडिट्स", callback_data='show_credits'),
             InlineKeyboardButton("📢 Support Channel", url=SUPPORT_CHANNEL_LINK)
         ],
         [
-            # 'Add Me to Group' बटन के लिए URL फॉर्मेट
             InlineKeyboardButton("➕ Add Me to Group", url=f"https://t.me/{bot_username}?startgroup=start")
         ]
     ]
@@ -125,19 +129,19 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     current_credits = get_credits(user_id)
     bot_username = context.bot.username
 
-    # **सख्त क्रेडिट चेक: 0 क्रेडिट होने पर सर्च नहीं होगा**
+    # सख्त क्रेडिट चेक: 0 क्रेडिट होने पर सर्च नहीं होगा
     if current_credits <= 0:
-        keyboard = [[InlineKeyboardButton(f"🎁 {REFERRAL_CREDITS} क्रेडिट कमाएँ", url=get_referral_link(bot_username, user_id))]]
+        keyboard = [[InlineKeyboardButton(f"🎁 {REFERRAL_CREDITS} क्रेडिट कमाएँ", callback_data='get_referral_link')]] # <-- बदला गया
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(
             "🛑 **क्रेडिट खत्म!**\nआपके पास अभी 0 क्रेडिट हैं। और सर्च करने के लिए, किसी दोस्त को रेफर करें!",
             reply_markup=reply_markup,
             parse_mode='Markdown'
         )
-        return # क्रेडिट खत्म होने पर यहाँ रुक जाएँ
+        return
 
     if not context.args:
-        await update.message.reply_text("⚠️ कृपया `/search` के बाद एक नंबर दें। उदाहरण: `/search 9777777774`")
+        await update.message.reply_text("⚠️ कृपया `/search` के बाद एक नंबर दें। उदाहरण: `/search 9798423774`")
         return
 
     num = context.args[0]
@@ -172,22 +176,20 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
         else:
             remaining_credits = USER_CREDITS[user_id]
-            # यदि डेटा नहीं मिला, तो भी क्रेडिट खर्च होगा क्योंकि सर्च तो हुआ है।
             await update.message.reply_text(f"❌ इस नंबर (`{num}`) के लिए कोई जानकारी नहीं मिली।\n"
                                             f"💰 **क्रेडिट्स बाकी:** {remaining_credits}", parse_mode='Markdown')
 
     except requests.exceptions.RequestException as e:
-        # अगर API कॉल विफल हुआ, तो क्रेडिट वापस कर दें।
-        USER_CREDITS[user_id] += 1 
+        USER_CREDITS[user_id] += 1 # क्रेडिट वापस करें
         logger.error(f"API Request Error: {e}")
         await update.message.reply_text("🛑 बाहरी सर्विस से कनेक्ट करने में कोई समस्या आई। आपका क्रेडिट वापस कर दिया गया है।")
         
     except Exception as e:
         logger.error(f"Unexpected Error: {e}")
-        await update.message.reply_text("❌ कोई अनपेक्षित गलती हुई।")
+        await update.message.reply_text("❌ कोई अनपेक्षित गलती हुई है।")
 
 async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    # ब्रॉडकास्ट कमांड (एडमिन-ओनली)
+    """एडमिन द्वारा चलाए जाने पर सभी यूजर्स को मैसेज भेजता है।"""
     user_id = update.effective_user.id
     
     if user_id != ADMIN_ID:
@@ -220,18 +222,19 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     )
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    # बटन हैंडलर
+    """Inline बटन क्लिक को हैंडल करता है।"""
     query = update.callback_query
     await query.answer()
 
+    user_id = query.from_user.id
+    save_user(user_id) 
+    bot_username = context.bot.username
+
     if query.data == 'show_credits':
-        user_id = query.from_user.id
-        save_user(user_id) 
         current_credits = get_credits(user_id)
         
-        bot_username = context.bot.username
         keyboard = [
-            [InlineKeyboardButton(f"🎁 {REFERRAL_CREDITS} क्रेडिट कमाएँ", url=get_referral_link(bot_username, user_id))]
+            [InlineKeyboardButton(f"🎁 {REFERRAL_CREDITS} क्रेडिट कमाएँ", callback_data='get_referral_link')] # <-- बदला गया
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -241,9 +244,32 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             parse_mode='Markdown'
         )
 
+    elif query.data == 'get_referral_link':
+        # नया लॉजिक: रेफरल लिंक भेजें
+        referral_link = get_referral_link(bot_username, user_id)
+        current_credits = get_credits(user_id)
+        
+        referral_message = (
+            "🔗 **आपका रेफरल लिंक यहाँ है:**\n"
+            f"`{referral_link}`\n\n"
+            f"यह लिंक किसी दोस्त को भेजें। जब वे बॉट शुरू करेंगे, तो आपको **{REFERRAL_CREDITS}** अतिरिक्त क्रेडिट मिलेंगे!\n"
+            f"आपके पास वर्तमान में: **{current_credits}** क्रेडिट्स हैं।"
+        )
+
+        keyboard = [[InlineKeyboardButton("🔙 वापस जाएँ", callback_data='show_credits')]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        # मैसेज को Edit करें
+        await query.edit_message_text(
+            referral_message, 
+            reply_markup=reply_markup, 
+            parse_mode='Markdown'
+        )
+
+
 def main() -> None:
-    if not BOT_TOKEN or not ADMIN_ID:
-        print("ERROR: BOT_TOKEN or ADMIN_ID is not set in environment variables.")
+    if not BOT_TOKEN or ADMIN_ID is None:
+        print("ERROR: BOT_TOKEN or ADMIN_ID is not set correctly in environment variables.")
         return
 
     application = Application.builder().token(BOT_TOKEN).build()
@@ -252,7 +278,6 @@ def main() -> None:
     application.add_handler(CommandHandler("search", search_command))
     application.add_handler(CommandHandler("broadcast", broadcast_command))
     
-    from telegram.ext import CallbackQueryHandler
     application.add_handler(CallbackQueryHandler(button_handler))
 
     print(f"Final Advanced Bot is running. Admin ID: {ADMIN_ID}")

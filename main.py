@@ -16,7 +16,7 @@ load_dotenv()
 
 # --- CONFIGURATION ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-API_BASE_URL = os.getenv("API_BASE_URL", "https://freeapi.frappeash.workers.dev/")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://aluuu.frappeash.workers.dev/")
 try:
     ADMIN_ID = int(os.getenv("ADMIN_ID"))
 except (TypeError, ValueError):

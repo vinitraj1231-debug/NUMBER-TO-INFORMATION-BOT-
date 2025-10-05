@@ -26,11 +26,9 @@ load_dotenv()
 
 # --- CONFIGURATION ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-# ⭐ नया और सही API यहाँ लगाया गया है ⭐
+# ⭐ API URL सही है ⭐
 API_BASE_URL = os.getenv("API_BASE_URL", "https://encore.sahilraz9265.workers.dev/numbr?num=")
 try:
-    # कृपया ध्यान दें: ADMIN_ID को .env फ़ाइल से लोड करना सबसे अच्छा है। 
-    # मैंने यहाँ दी गई ID (7524032836) को ही उपयोग किया है।
     ADMIN_ID = int(os.getenv("ADMIN_ID", "7524032836")) 
 except (TypeError, ValueError):
     ADMIN_ID = None
@@ -38,16 +36,15 @@ except (TypeError, ValueError):
 
 # Settings
 DAILY_CREDITS_LIMIT = 3
-REFERRAL_CREDITS = 1 # 1 क्रेडिट प्रति रेफरल
+REFERRAL_CREDITS = 1 
 SUPPORT_CHANNEL_USERNAME = "narzoxbot"
 SUPPORT_CHANNEL_LINK = "https://t.me/narzoxbot"
-# ⭐ यहां नया Owner Username जोड़ा गया है ⭐
 ADMIN_USERNAME_FOR_ACCESS = "teamrajweb" 
 DATA_FILE = "bot_data.json"
 BANNED_USERS_FILE = "banned_users.json"
 # ---------------------
 
-# --- GLOBAL STORAGE ---
+# --- GLOBAL STORAGE (No Change) ---
 USER_CREDITS = {}
 USERS = set()
 REFERRED_TRACKER = set()
@@ -55,7 +52,8 @@ UNLIMITED_USERS = {}  # {user_id: expiry_timestamp or "forever"}
 BANNED_USERS = set()
 USER_SEARCH_HISTORY = {}  # {user_id: [searches]}
 DAILY_STATS = {"searches": 0, "new_users": 0, "referrals": 0}
-# -----------------------------------------------------------------
+
+# --- Utility Functions (No Change) ---
 
 def load_data():
     """JSON फाइल से डेटा लोड करें"""
@@ -70,7 +68,6 @@ def load_data():
                 UNLIMITED_USERS = {int(k): v for k, v in data.get('unlimited', {}).items()}
                 USER_SEARCH_HISTORY = {int(k): v for k, v in data.get('search_history', {}).items()}
                 DAILY_STATS = data.get('daily_stats', {"searches": 0, "new_users": 0, "referrals": 0})
-                logger.info(f"✅ Data loaded: {len(USERS)} users, {len(UNLIMITED_USERS)} unlimited users")
     except Exception as e:
         logger.error(f"❌ Error loading data: {e}")
 
@@ -92,7 +89,6 @@ def save_data():
         logger.error(f"❌ Error saving data: {e}")
 
 def load_banned_users():
-    """बैन किए गए यूजर्स लोड करें"""
     global BANNED_USERS
     try:
         if os.path.exists(BANNED_USERS_FILE):
@@ -102,7 +98,6 @@ def load_banned_users():
         logger.error(f"Error loading banned users: {e}")
 
 def save_banned_users():
-    """बैन किए गए यूजर्स सेव करें"""
     try:
         with open(BANNED_USERS_FILE, 'w') as f:
             json.dump(list(BANNED_USERS), f)
@@ -110,29 +105,21 @@ def save_banned_users():
         logger.error(f"Error saving banned users: {e}")
 
 def get_credits(user_id: int) -> int:
-    """यूजर के वर्तमान क्रेडिट्स प्राप्त करें"""
     if is_unlimited(user_id):
         return float('inf')
-    
     if user_id not in USER_CREDITS:
         USER_CREDITS[user_id] = DAILY_CREDITS_LIMIT
         save_data()
-    
     return USER_CREDITS.get(user_id, 0)
 
 def is_unlimited(user_id: int) -> bool:
-    """चेक करें कि यूजर के पास अनलिमिटेड एक्सेस है या नहीं"""
     if user_id == ADMIN_ID:
         return True
-    
     if user_id not in UNLIMITED_USERS:
         return False
-    
     expiry = UNLIMITED_USERS[user_id]
-    
     if expiry == "forever":
         return True
-    
     if isinstance(expiry, (int, float)):
         if datetime.now().timestamp() < expiry:
             return True
@@ -140,25 +127,19 @@ def is_unlimited(user_id: int) -> bool:
             del UNLIMITED_USERS[user_id]
             save_data()
             return False
-    
     return False
 
 def get_unlimited_expiry_text(user_id: int) -> str:
-    """अनलिमिटेड एक्सपायरी का टेक्स्ट पाएं"""
     if user_id not in UNLIMITED_USERS:
         return ""
-    
     expiry = UNLIMITED_USERS[user_id]
-    
     if expiry == "forever":
         return "हमेशा के लिए ♾️"
-    
     if not isinstance(expiry, (int, float)):
         return "अज्ञात अवधि"
 
     expiry_date = datetime.fromtimestamp(expiry)
     remaining = expiry_date - datetime.now()
-    
     if remaining.days > 0:
         return f"{remaining.days} दिन बाकी"
     elif remaining.total_seconds() > 3600:
@@ -170,20 +151,16 @@ def get_unlimited_expiry_text(user_id: int) -> str:
     else:
         return "समाप्त हो गया है 🛑"
 
-
 def get_referral_link(bot_username: str, user_id: int) -> str:
-    """रेफरल लिंक बनाएं"""
     return f"https://t.me/{bot_username}?start=ref_{user_id}"
 
 def save_user(user_id: int) -> None:
-    """यूजर ID सेव करें"""
     if user_id not in USERS:
         USERS.add(user_id)
         DAILY_STATS["new_users"] += 1
         save_data()
 
 def add_search_history(user_id: int, number: str) -> None:
-    """सर्च हिस्ट्री में जोड़ें"""
     if user_id not in USER_SEARCH_HISTORY:
         USER_SEARCH_HISTORY[user_id] = []
     
@@ -192,7 +169,6 @@ def add_search_history(user_id: int, number: str) -> None:
         "timestamp": datetime.now().isoformat()
     })
     
-    # केवल आखिरी 50 सर्च रखें
     if len(USER_SEARCH_HISTORY[user_id]) > 50:
         USER_SEARCH_HISTORY[user_id] = USER_SEARCH_HISTORY[user_id][-50:]
     
@@ -200,7 +176,6 @@ def add_search_history(user_id: int, number: str) -> None:
     save_data()
 
 async def check_channel_membership(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """चेक करें कि यूजर चैनल का मेंबर है या नहीं"""
     try:
         member = await context.bot.get_chat_member(f"@{SUPPORT_CHANNEL_USERNAME}", user_id)
         return member.status in ['member', 'administrator', 'creator']
@@ -211,10 +186,8 @@ async def check_channel_membership(user_id: int, context: ContextTypes.DEFAULT_T
         return False
 
 async def force_channel_join(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """यूजर को चैनल ज्वाइन करने के लिए कहें"""
     user_id = update.effective_user.id
     
-    # Admin और Unlimited users को bypass दें
     if user_id == ADMIN_ID or (user_id in UNLIMITED_USERS and is_unlimited(user_id)):
         return True
     
@@ -245,20 +218,18 @@ async def force_channel_join(update: Update, context: ContextTypes.DEFAULT_TYPE)
             pass
         
         return False
-    
     return True
 
 def is_banned(user_id: int) -> bool:
-    """चेक करें कि यूजर बैन है या नहीं"""
     return user_id in BANNED_USERS
 
+# --- Handlers (start_command, message_handler, admin commands remain the same) ---
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/start कमांड हैंडलर"""
     user_id = update.effective_user.id
     username = update.effective_user.first_name or "friend"
     bot_username = context.bot.username
     
-    # बैन चेक
     if is_banned(user_id):
         await update.message.reply_text(
             "🚫 **आप इस बॉट का उपयोग करने से बैन हैं।**\n\n"
@@ -268,11 +239,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     
     save_user(user_id)
     
-    # चैनल मेंबरशिप चेक करें
     if not await force_channel_join(update, context):
         return
     
-    # रेफरल लॉजिक
     referral_success = False
     if context.args and context.args[0].startswith('ref_'):
         try:
@@ -311,7 +280,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         except Exception as e:
             logger.error(f"Referral Error: {e}")
     
-    # वेलकम मैसेज (Start Menu Logic)
     current_credits = get_credits(user_id)
     is_unli = is_unlimited(user_id)
     credit_text = "अनलिमिटेड ♾️" if is_unli else str(current_credits)
@@ -325,7 +293,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             InlineKeyboardButton(f"💰 क्रेडिट्स ({credit_text})", callback_data='show_credits'),
             InlineKeyboardButton("📊 मेरी रेफरल", callback_data='my_referrals')
         ],
-        # ⭐ यहां नया Unlimited Access बटन जोड़ा गया है ⭐
         [
             InlineKeyboardButton("📜 सर्च हिस्ट्री", callback_data='search_history'),
             InlineKeyboardButton("👑 अनलिमिटेड एक्सेस", callback_data='buy_unlimited_access') 
@@ -361,19 +328,16 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     user_id = update.effective_user.id
     save_user(user_id)
     
-    # बैन चेक
     if is_banned(user_id):
         await update.message.reply_text("🚫 आप बैन हैं।")
         return
     
-    # चैनल मेंबरशिप चेक
     if not await force_channel_join(update, context):
         return
     
     current_credits = get_credits(user_id)
     is_unli = is_unlimited(user_id)
     
-    # क्रेडिट चेक
     if not is_unli and current_credits <= 0:
         keyboard = [
             [InlineKeyboardButton(f"🎁 {REFERRAL_CREDITS} क्रेडिट कमाएँ", callback_data='get_referral_link')],
@@ -406,32 +370,32 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     
     num = context.args[0].strip().replace("+91", "").replace(" ", "").replace("-", "")
     
-    # नंबर वैलिडेशन
-    if not num.isdigit():
-        await update.message.reply_text("❌ कृपया केवल नंबर दें। कोई अक्षर या स्पेशल कैरेक्टर न डालें।")
+    if not num.isdigit() or len(num) < 10:
+        await update.message.reply_text("❌ कृपया कम से कम 10 अंकों का वैध मोबाइल नंबर दें।")
         return
     
-    if len(num) < 10:
-        await update.message.reply_text("❌ कृपया कम से कम 10 अंकों का मोबाइल नंबर दें।")
-        return
-    
-    # ⭐ नए API का उपयोग ⭐
+    # ⭐ नया API URL ⭐
     api_url = f"{API_BASE_URL}{num}"
     
     credit_msg = "" if is_unli else " (1 क्रेडिट लगेगा)"
     searching_msg = await update.message.reply_text(
         f"🔍 **सर्च हो रही है...**\n"
         f"📱 नंबर: `{num}`{credit_msg}\n\n"
-        "⏳ कृपया प्रतीक्षा करें...",
+        "⏳ कृपया प्रतीक्षा करें (अधिकतम 15 सेकंड)...",
         parse_mode=ParseMode.MARKDOWN
     )
     
     try:
-        response = requests.get(api_url, timeout=15)
+        # ⭐ Timeout 15 सेकंड पर सेट किया गया है ⭐
+        response = requests.get(api_url, timeout=15) 
         response.raise_for_status()
-        data = response.json()
         
-        # क्रेडिट घटाएं
+        try:
+            data = response.json()
+        except json.JSONDecodeError:
+            raise ValueError("API returned invalid JSON format.")
+        
+        # क्रेडिट घटाएं (यदि अनलिमिटेड नहीं है)
         if not is_unli:
             USER_CREDITS[user_id] -= 1
             save_data()
@@ -442,16 +406,13 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         response_message = "✅ **जानकारी मिल गई!** 🎉\n\n"
         user_data = None
         
-        # ⭐ नए API रिस्पॉन्स को ठीक से प्रोसेस करें (data key के अंदर list में) ⭐
+        # ⭐ API रिस्पॉन्स को ठीक से प्रोसेस करें (data key में लिस्ट) ⭐
         if 'data' in data and isinstance(data['data'], list) and len(data['data']) > 0:
-            # हम पहले आइटम को लेते हैं, क्योंकि इसमें मुख्य जानकारी होती है
             user_data = data['data'][0] 
         elif isinstance(data, dict) and any(data.values()):
-             # Fallback अगर structure अलग हो (अगर data key न हो)
             user_data = data 
         
         if user_data:
-            # कुछ keys को ignore कर सकते हैं अगर वे API में बेकार हों या एडमिन की जानकारी हो
             keys_to_ignore = ['api_owner', 'developer', 'id']
             
             response_message += "📋 **विवरण:**\n"
@@ -459,12 +420,10 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             # सुनिश्चित करें कि सबसे महत्वपूर्ण keys पहले आएं
             key_order = ['name', 'mobile', 'fname', 'address', 'circle']
             
-            # Process required keys first
             for key in key_order:
                 value = user_data.get(key)
                 if value and str(value).strip():
                     clean_key = key.replace('_', ' ').title()
-                    # Emoji जोड़ें
                     emoji = "📌"
                     if 'name' in key.lower() or 'fname' in key.lower(): emoji = "👤"
                     elif 'mobile' in key.lower() or 'phone' in key.lower(): emoji = "📱"
@@ -473,13 +432,16 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                     
                     response_message += f"{emoji} **{clean_key}:** `{value}`\n"
 
-            # Process remaining keys
             for key, value in user_data.items():
                 if key not in keys_to_ignore and key not in key_order and value and str(value).strip():
                     clean_key = key.replace('_', ' ').title()
-                    emoji = "✨" # Default emoji for other keys
-                    response_message += f"{emoji} **{clean_key}:** `{value}`\n"
+                    response_message += f"✨ **{clean_key}:** `{value}`\n"
             
+            # API Owner और Developer को आपके नाम से दिखाएं
+            response_message += "\n━━━━━━━━━━━━━━━━━━━━\n"
+            response_message += f"👑 **API Owner:** `@teamrajweb`\n"
+            response_message += f"🧑‍💻 **Developer:** `@teamrajweb`\n"
+
             remaining_credits = "अनलिमिटेड ♾️" if is_unli else USER_CREDITS[user_id]
             response_message += f"\n💰 **क्रेडिट्स बाकी:** {remaining_credits}"
             
@@ -497,50 +459,63 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 parse_mode=ParseMode.MARKDOWN
             )
     
-    except requests.exceptions.Timeout:
+    except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+        # ⭐ Timeout और Connection Error पर क्रेडिट वापस करें ⭐
+        if not is_unli:
+            USER_CREDITS[user_id] += 1
+            save_data()
+        
+        error_type = "कनेक्शन टाइमआउट" if isinstance(e, requests.exceptions.Timeout) else "कनेक्शन विफल"
+        
+        await searching_msg.edit_text(
+            f"🛑 **सेवा अनुपलब्ध: {error_type}**\n\n"
+            "बाहरी API सर्वर से कनेक्ट नहीं हो पा रहा है।\n"
+            "कृपया कुछ देर बाद कोशिश करें।\n\n"
+            "आपका क्रेडिट वापस कर दिया गया है। ✅",
+            parse_mode=ParseMode.MARKDOWN
+        )
+        logger.error(f"API Connection Error for {num}: {e}")
+    
+    except requests.exceptions.HTTPError as e:
+        # HTTP 4xx/5xx errors
         if not is_unli:
             USER_CREDITS[user_id] += 1
             save_data()
         await searching_msg.edit_text(
-            "⏰ **टाइमआउट!**\n\n"
-            "सर्विस का रिस्पांस नहीं आया। कृपया कुछ देर बाद कोशिश करें।\n"
-            "आपका क्रेडिट वापस कर दिया गया है।"
+            "⚠️ **API एरर:**\n\n"
+            f"API ने **त्रुटि कोड {e.response.status_code}** लौटाया है।\n"
+            "यह एक सर्वर-साइड समस्या हो सकती है।\n\n"
+            "आपका क्रेडिट वापस कर दिया गया है। ✅",
+            parse_mode=ParseMode.MARKDOWN
         )
-    
-    except requests.exceptions.RequestException as e:
-        if not is_unli:
-            USER_CREDITS[user_id] += 1
-            save_data()
-        logger.error(f"API Request Error: {e}")
-        await searching_msg.edit_text(
-            "🛑 **सर्विस में समस्या!**\n\n"
-            "बाहरी सर्विस से कनेक्ट नहीं हो पा रहा है।\n"
-            "कृपया बाद में कोशिश करें।\n\n"
-            "आपका क्रेडिट वापस कर दिया गया है। ✅"
-        )
-    
+        logger.error(f"API HTTP Error for {num}: {e.response.status_code}")
+
     except Exception as e:
-        logger.error(f"Unexpected Error: {e}")
+        # अन्य सभी अनपेक्षित त्रुटियां
+        if not is_unli:
+            # हम यहां क्रेडिट वापस नहीं कर रहे हैं, क्योंकि यह कोड की आंतरिक त्रुटि हो सकती है।
+            # इसे सुरक्षित रखने के लिए हम सिर्फ एक संदेश दिखाते हैं।
+            pass
+        logger.error(f"Unexpected Error during search for {num}: {e}")
         await searching_msg.edit_text(
             "❌ **अनपेक्षित गलती!**\n\n"
-            "कुछ गलत हो गया। कृपया बाद में कोशिश करें।"
+            "सर्च के दौरान कुछ गंभीर गलत हो गया।\n"
+            "कृपया बाद में फिर से प्रयास करें।\n\n"
+            "यदि यह समस्या बनी रहती है, तो **एडमिन से संपर्क करें।**"
         )
 
+
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """सीधे नंबर भेजने पर हैंडल करें"""
     text = update.message.text.strip()
-    
     clean_num = text.replace("+91", "").replace(" ", "").replace("-", "")
     if clean_num.isdigit() and len(clean_num) >= 10:
         context.args = [clean_num]
         await search_command(update, context)
 
-# --- Admin Commands (No change needed here, already supports unlimited) ---
+# --- Admin Commands (No change) ---
 
 async def unlimited_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """किसी यूजर को अनलिमिटेड एक्सेस दें (एडमिन ओनली)"""
     user_id = update.effective_user.id
-    
     if user_id != ADMIN_ID:
         await update.message.reply_text("⚠️ **अस्वीकृत!** यह कमांड केवल एडमिन के लिए है।")
         return
@@ -619,13 +594,10 @@ async def unlimited_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         logger.warning(f"Could not notify user {target_user_id} about unlimited access: {e}")
 
 async def remove_unlimited_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """किसी यूजर का अनलिमिटेड एक्सेस हटाएं (एडमिन ओनली)"""
     user_id = update.effective_user.id
-    
     if user_id != ADMIN_ID:
         await update.message.reply_text("⚠️ **अस्वीकृत!** यह कमांड केवल एडमिन के लिए है।")
         return
-    
     if not context.args:
         await update.message.reply_text(
             "📝 **Usage:** `/remove_unlimited <user_id>`\n\n"
@@ -633,13 +605,11 @@ async def remove_unlimited_command(update: Update, context: ContextTypes.DEFAULT
             parse_mode=ParseMode.MARKDOWN
         )
         return
-    
     try:
         target_user_id = int(context.args[0])
     except ValueError:
         await update.message.reply_text("❌ Invalid User ID.")
         return
-    
     if target_user_id in UNLIMITED_USERS:
         del UNLIMITED_USERS[target_user_id]
         save_data()
@@ -648,12 +618,10 @@ async def remove_unlimited_command(update: Update, context: ContextTypes.DEFAULT
             f"User `{target_user_id}` का unlimited access हटा दिया गया है।",
             parse_mode=ParseMode.MARKDOWN
         )
-        
         try:
             if target_user_id not in USER_CREDITS:
                  USER_CREDITS[target_user_id] = DAILY_CREDITS_LIMIT
                  save_data()
-            
             await context.bot.send_message(
                 chat_id=target_user_id,
                 text="⚠️ आपका **Unlimited Access** समाप्त हो गया है।\n\n"
@@ -665,20 +633,15 @@ async def remove_unlimited_command(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text(f"❌ User `{target_user_id}` के पास unlimited access नहीं है।", parse_mode=ParseMode.MARKDOWN)
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """बॉट की स्टेटिस्टिक्स दिखाएं (Admin Only)"""
     user_id = update.effective_user.id
-    
     if user_id != ADMIN_ID:
         await update.message.reply_text("⚠️ **अस्वीकृत!** यह कमांड केवल एडमिन के लिए है।")
         return
-    
     total_users = len(USERS)
     total_referrals = len(REFERRED_TRACKER)
     unlimited_users = len(UNLIMITED_USERS)
     banned_users = len(BANNED_USERS)
     total_searches = DAILY_STATS.get("searches", 0)
-    
-    # यह सिर्फ एक अनुमानित आंकड़ा है, इसे सटीक रूप से ट्रैक करने के लिए अधिक complex logic चाहिए
     total_credits_used = sum(DAILY_CREDITS_LIMIT - USER_CREDITS.get(uid, 0) for uid in USERS if uid not in UNLIMITED_USERS)
     
     keyboard = [
@@ -712,13 +675,10 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_text(stats_message, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
 
 async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """सभी यूजर्स को मैसेज ब्रॉडकास्ट करें (Admin Only)"""
     user_id = update.effective_user.id
-    
     if user_id != ADMIN_ID:
         await update.message.reply_text("⚠️ **अस्वीकृत!** यह कमांड केवल एडमिन के लिए है।")
         return
-    
     if not context.args:
         await update.message.reply_text(
             "📣 **Broadcast Command**\n\n"
@@ -726,7 +686,6 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             parse_mode=ParseMode.MARKDOWN
         )
         return
-    
     broadcast_message = " ".join(context.args)
     success_count = 0
     failure_count = 0
@@ -747,7 +706,6 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 parse_mode=ParseMode.MARKDOWN
             )
             success_count += 1
-            
             if (idx + 1) % 50 == 0:
                 await status_msg.edit_text(
                     f"⏳ **Broadcasting...**\n\n"
@@ -756,10 +714,8 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                     f"❌ Failed: {failure_count}\n"
                     f"📊 Progress: {idx + 1}/{len(USERS)}"
                 )
-            
             if (idx + 1) % 30 == 0:
                 await asyncio.sleep(1)
-                
         except Forbidden:
             blocked_count += 1
             failure_count += 1
@@ -775,41 +731,32 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         f"🚫 Blocked Bot: {blocked_count}\n"
         f"📈 Success Rate: {(success_count/len(USERS)*100 if len(USERS) > 0 else 0):.1f}%"
     )
-    
     await status_msg.edit_text(final_message)
 
 async def add_credits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """किसी यूजर को क्रेडिट्स जोड़ें (Admin Only)"""
     user_id = update.effective_user.id
-    
     if user_id != ADMIN_ID:
         await update.message.reply_text("⚠️ **अस्वीकृत!** यह कमांड केवल एडमिन के लिए है।")
         return
-    
     if len(context.args) < 2:
         await update.message.reply_text(
             "📝 **Usage:** `/addcredits <user_id> <credits>`",
             parse_mode=ParseMode.MARKDOWN
         )
         return
-    
     try:
         target_user_id = int(context.args[0])
         credits_to_add = int(context.args[1])
     except ValueError:
         await update.message.reply_text("❌ कृपया मान्य नंबर दें।")
         return
-    
     if credits_to_add <= 0:
         await update.message.reply_text("❌ Credits 0 से ज्यादा होने चाहिए।")
         return
-    
     if target_user_id not in USER_CREDITS:
         USER_CREDITS[target_user_id] = 0
-    
     USER_CREDITS[target_user_id] += credits_to_add
     save_data()
-    
     await update.message.reply_text(
         f"✅ **Credits Added Successfully!**\n\n"
         f"👤 **User ID:** `{target_user_id}`\n"
@@ -817,7 +764,6 @@ async def add_credits_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         f"💰 **New Total:** {USER_CREDITS[target_user_id]} credits",
         parse_mode=ParseMode.MARKDOWN
     )
-    
     try:
         await context.bot.send_message(
             chat_id=target_user_id,
@@ -830,38 +776,30 @@ async def add_credits_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         pass
 
 async def ban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """किसी यूजर को बैन करें (Admin Only)"""
     user_id = update.effective_user.id
-    
     if user_id != ADMIN_ID:
         await update.message.reply_text("⚠️ **अस्वीकृत!** यह कमांड केवल एडमिन के लिए है।")
         return
-    
     if not context.args:
         await update.message.reply_text(
             "📝 **Usage:** `/ban <user_id> [reason]`",
             parse_mode=ParseMode.MARKDOWN
         )
         return
-    
     try:
         target_user_id = int(context.args[0])
     except ValueError:
         await update.message.reply_text("❌ Invalid User ID.")
         return
-    
     reason = " ".join(context.args[1:]) if len(context.args) > 1 else "No reason provided"
-    
     BANNED_USERS.add(target_user_id)
     save_banned_users()
-    
     await update.message.reply_text(
         f"🚫 **User Banned**\n\n"
         f"👤 **User ID:** `{target_user_id}`\n"
         f"📝 **Reason:** {reason}",
         parse_mode=ParseMode.MARKDOWN
     )
-    
     try:
         await context.bot.send_message(
             chat_id=target_user_id,
@@ -873,28 +811,22 @@ async def ban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         pass
 
 async def unban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """किसी यूजर को अनबैन करें (Admin Only)"""
     user_id = update.effective_user.id
-    
     if user_id != ADMIN_ID:
         await update.message.reply_text("⚠️ **अस्वीकृत!** यह कमांड केवल एडमिन के लिए है।")
         return
-    
     if not context.args:
         await update.message.reply_text("📝 **Usage:** `/unban <user_id>`", parse_mode=ParseMode.MARKDOWN)
         return
-    
     try:
         target_user_id = int(context.args[0])
     except ValueError:
         await update.message.reply_text("❌ Invalid User ID.")
         return
-    
     if target_user_id in BANNED_USERS:
         BANNED_USERS.remove(target_user_id)
         save_banned_users()
         await update.message.reply_text(f"✅ User `{target_user_id}` को unban कर दिया गया है।", parse_mode=ParseMode.MARKDOWN)
-        
         try:
             await context.bot.send_message(
                 chat_id=target_user_id,
@@ -906,10 +838,9 @@ async def unban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     else:
         await update.message.reply_text(f"❌ User `{target_user_id}` banned नहीं है।", parse_mode=ParseMode.MARKDOWN)
 
-# --- Button Handler (Updated for buy_unlimited_access) ---
+# --- Button Handler (No change, as it was already correct) ---
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Inline बटन हैंडलर"""
     query = update.callback_query
     await query.answer()
     
@@ -917,7 +848,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     save_user(user_id)
     bot_username = context.bot.username
     
-    # चैनल मेंबरशिप चेक
     if query.data == 'check_membership':
         is_member = await check_channel_membership(user_id, context)
         if is_member:
@@ -949,7 +879,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         is_unli = is_unlimited(user_id)
         credit_text = "अनलिमिटेड ♾️" if is_unli else str(current_credits)
         referral_count = sum(1 for r in REFERRED_TRACKER if r[0] == user_id)
-        
         expiry_info = ""
         if is_unli and user_id != ADMIN_ID:
             expiry_info = f"\n⏰ **वैलिडिटी:** {get_unlimited_expiry_text(user_id)}"
@@ -1009,9 +938,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         
         await query.edit_message_text(referral_message, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
     
-    # ⭐ यहां buy_unlimited_access को अपडेट किया गया है ⭐
     elif query.data == 'buy_unlimited_access':
-        # अनलिमिटेड एक्सेस बटन
         keyboard = [
             [InlineKeyboardButton("👑 Owner से संपर्क करें", url=f"https://t.me/{ADMIN_USERNAME_FOR_ACCESS}")],
             [InlineKeyboardButton("🔙 मुख्य मेनू", callback_data='main_menu')]
@@ -1033,11 +960,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     elif query.data == 'my_referrals':
         referral_count = sum(1 for r in REFERRED_TRACKER if r[0] == user_id)
         total_earned = referral_count * REFERRAL_CREDITS
-        
         referral_counts = {}
         for ref_id, _ in REFERRED_TRACKER:
             referral_counts[ref_id] = referral_counts.get(ref_id, 0) + 1
-        
         sorted_referrers = sorted(referral_counts.items(), key=lambda x: x[1], reverse=True)
         user_rank = next((i+1 for i, (uid, _) in enumerate(sorted_referrers) if uid == user_id), "N/A")
         
@@ -1183,24 +1108,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     
     # Admin Buttons (no change)
     elif query.data == 'admin_stats' and user_id == ADMIN_ID:
-        # Re-running the command to refresh the stats message
         await stats_command(update.callback_query.message, context)
     
     elif query.data == 'admin_top_users' and user_id == ADMIN_ID:
         referral_counts = {}
         for ref_id, _ in REFERRED_TRACKER:
             referral_counts[ref_id] = referral_counts.get(ref_id, 0) + 1
-        
         sorted_referrers = sorted(referral_counts.items(), key=lambda x: x[1], reverse=True)[:10]
-        
         top_users_text = "🏆 **Top 10 Referrers:**\n\n"
         for idx, (uid, count) in enumerate(sorted_referrers, 1):
             emoji = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else f"{idx}️⃣"
             top_users_text += f"{emoji} User `{uid}` - {count} रेफरल\n"
-        
         keyboard = [[InlineKeyboardButton("🔙 Back to Stats", callback_data='admin_stats')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        
         await query.edit_message_text(top_users_text, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
     
     elif query.data == 'admin_unlimited_list' and user_id == ADMIN_ID:
@@ -1212,7 +1132,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 reply_markup=reply_markup
             )
             return
-        
         unlimited_text = "👑 **Unlimited Users List:**\n\n"
         for uid, expiry in list(UNLIMITED_USERS.items())[:20]:
             if expiry == "forever":
@@ -1225,13 +1144,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                     expiry_str = "Invalid Date"
 
             unlimited_text += f"• User `{uid}` - {expiry_str}\n"
-        
         if len(UNLIMITED_USERS) > 20:
             unlimited_text += f"\n... and {len(UNLIMITED_USERS) - 20} more"
-        
         keyboard = [[InlineKeyboardButton("🔙 Back to Stats", callback_data='admin_stats')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        
         await query.edit_message_text(unlimited_text, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
     
     elif query.data == 'admin_banned_list' and user_id == ADMIN_ID:
@@ -1243,33 +1159,25 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 reply_markup=reply_markup
             )
             return
-        
         banned_text = "🚫 **Banned Users List:**\n\n"
         for uid in list(BANNED_USERS)[:30]:
             banned_text += f"• User `{uid}`\n"
-        
         if len(BANNED_USERS) > 30:
             banned_text += f"\n... and {len(BANNED_USERS) - 30} more"
-        
         keyboard = [[InlineKeyboardButton("🔙 Back to Stats", callback_data='admin_stats')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        
         await query.edit_message_text(banned_text, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
 
 async def set_bot_commands(application: Application) -> None:
-    """बॉट commands सेट करें"""
     commands = [
         BotCommand("start", "🚀 Start the bot"),
         BotCommand("search", "🔍 Search a number"),
     ]
-    
     await application.bot.set_my_commands(commands)
     logger.info("✅ Bot commands set successfully")
 
 async def post_init(application: Application) -> None:
-    """Initialization के बाद चलाएं"""
     await set_bot_commands(application)
-    
     if ADMIN_ID:
         try:
             await application.bot.send_message(
@@ -1286,11 +1194,9 @@ async def post_init(application: Application) -> None:
             pass
 
 def main() -> None:
-    """मुख्य फंक्शन"""
     if not BOT_TOKEN:
         print("❌ ERROR: BOT_TOKEN is not set in environment variables.")
         return
-    
     if ADMIN_ID is None:
         print("⚠️ WARNING: ADMIN_ID is not set. Admin commands will not work.")
     
@@ -1302,17 +1208,17 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("search", search_command))
     
-    # Admin Commands
-    application.add_handler(CommandHandler("broadcast", broadcast_command))
-    application.add_handler(CommandHandler("unlimited", unlimited_command))
-    application.add_handler(CommandHandler("remove_unlimited", remove_unlimited_command))
-    application.add_handler(CommandHandler("stats", stats_command))
-    application.add_handler(CommandHandler("addcredits", add_credits_command))
-    application.add_handler(CommandHandler("ban", ban_command))
-    application.add_handler(CommandHandler("unban", unban_command))
+    application.add_handlers([
+        CommandHandler("broadcast", broadcast_command),
+        CommandHandler("unlimited", unlimited_command),
+        CommandHandler("remove_unlimited", remove_unlimited_command),
+        CommandHandler("stats", stats_command),
+        CommandHandler("addcredits", add_credits_command),
+        CommandHandler("ban", ban_command),
+        CommandHandler("unban", unban_command),
+    ])
     
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
-    
     application.add_handler(CallbackQueryHandler(button_handler))
     
     print("=" * 50)

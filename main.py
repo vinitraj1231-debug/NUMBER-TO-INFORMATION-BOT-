@@ -28,7 +28,7 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 API_BASE_URL = os.getenv("API_BASE_URL", "https://taitan.mastimusicboxabd01.workers.dev/?mobile=")
 try:
-    ADMIN_ID = int(os.getenv("ADMIN_ID"))
+    ADMIN_ID = int(os.getenv("7524032836"))
 except (TypeError, ValueError):
     ADMIN_ID = None
     logger.error("ADMIN_ID is missing or invalid in .env file.")

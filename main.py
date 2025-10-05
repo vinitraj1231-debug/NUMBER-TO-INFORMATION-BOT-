@@ -26,7 +26,7 @@ load_dotenv()
 
 # --- CONFIGURATION ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-API_BASE_URL = os.getenv("API_BASE_URL", "https://taitan.mastimusicboxabd01.workers.dev/?mobile=")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://encore.sahilraz9265.workers.dev/numbr?num=")
 try:
     ADMIN_ID = int(os.getenv("7524032836"))
 except (TypeError, ValueError):

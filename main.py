@@ -37,12 +37,10 @@ REFERRED_TRACKER = set()
 
 def get_credits(user_id: int) -> int:
     """यूजर के वर्तमान क्रेडिट्स प्राप्त करता है। नया यूजर होने पर डिफॉल्ट क्रेडिट देता है।"""
-    # **महत्वपूर्ण बदलाव:** क्रेडिट केवल तभी असाइन किया जाएगा जब यूजर मौजूद न हो। 
-    # 0 पर पहुंचने पर कोई ऑटो-रीसेट नहीं होगा।
     if user_id not in USER_CREDITS:
         USER_CREDITS[user_id] = DAILY_CREDITS_LIMIT
     
-    return USER_CREDITS.get(user_id, 0) # अगर किसी कारण से क्रेडिट नहीं मिला, तो 0 लौटाएँ
+    return USER_CREDITS.get(user_id, 0) 
 
 def get_referral_link(bot_username: str, user_id: int) -> str:
     """यूजर के लिए रेफरल लिंक बनाता है।"""
@@ -66,15 +64,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             referrer_id = int(context.args[0].split('_')[1])
             referral_key = (referrer_id, user_id)
             
-            # सुनिश्चित करें: 1. रेफरर खुद नहीं है। 2. यह रेफरल पहले ट्रैक नहीं किया गया है।
             if referrer_id != user_id and referral_key not in REFERRED_TRACKER:
                 
-                # क्रेडिट केवल तभी दें जब रेफरर मौजूद हो
                 if referrer_id in USER_CREDITS:
                     USER_CREDITS[referrer_id] += REFERRAL_CREDITS
                     REFERRED_TRACKER.add(referral_key) 
                     
-                    # रेफरर को नोटिफिकेशन भेजें
                     await context.bot.send_message(
                         chat_id=referrer_id,
                         text=f"🥳 **बधाई हो!** `{username}` ने आपके रेफरल लिंक से बॉट शुरू किया है।\n"
@@ -84,22 +79,18 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     
                     await update.message.reply_text(f"धन्यवाद! आपने रेफरल के ज़रिए बॉट शुरू किया है। आपको {DAILY_CREDITS_LIMIT} शुरुआती क्रेडिट मिले हैं।")
                 else:
-                    # अगर रेफरर आईडी बॉट में मौजूद नहीं है (बहुत कम संभावना)
                      await update.message.reply_text(f"धन्यवाद! आपने बॉट शुरू किया है। आपको {DAILY_CREDITS_LIMIT} शुरुआती क्रेडिट मिले हैं।")
             
             elif referral_key in REFERRED_TRACKER:
-                 # अगर यह यूजर पहले ही इस रेफरल से स्टार्ट कर चुका है, तो कोई क्रेडिट नहीं।
                  await update.message.reply_text("आपने पहले ही इस रेफरल के ज़रिए बॉट शुरू कर दिया है। कोई अतिरिक्त क्रेडिट नहीं मिला।")
 
         except Exception as e:
             logger.error(f"Referral Error: {e}")
-            # सामान्य स्वागत मैसेज दिखाएँ अगर रेफरल लॉजिक विफल होता है
             pass 
 
     # 2. सामान्य वेलकम मैसेज और बटन
-    current_credits = get_credits(user_id) # नया/मौजूदा क्रेडिट प्राप्त करें
+    current_credits = get_credits(user_id) 
 
-    # Inline Keyboards (बटन)
     keyboard = [
         [
             InlineKeyboardButton("🔍 जानकारी खोजें", switch_inline_query_current_chat="/search "),
@@ -144,7 +135,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             reply_markup=reply_markup,
             parse_mode='Markdown'
         )
-        return # क्रेडिट खत्म होने पर यहाँ रुक जाएँ, कोई API कॉल नहीं
+        return 
 
     if not context.args:
         await update.message.reply_text("⚠️ कृपया `/search` के बाद एक नंबर दें। उदाहरण: `/search 9798423774`")
@@ -165,39 +156,28 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         # क्रेडिट घटाएँ (सफलतापूर्वक कॉल होने पर)
         USER_CREDITS[user_id] -= 1
         
-        # डेटा प्रोसेस करें (JSON parsing और formatting)
-        # ध्यान दें: JSON स्ट्रक्चर बदल गया होगा, इसलिए यह प्रोसेसिंग लॉजिक नए API के आउटपुट पर निर्भर करेगा।
-        # मैंने सामान्य JSON प्रोसेसिंग रखी है।
+        response_message = "✅ **जानकारी प्राप्त हुई:**\n\n"
+        user_data = None
+
+        # API से JSON डेटा को प्रोसेस करने का प्रयास करें
         if 'result' in data and isinstance(data['result'], list) and len(data['result']) > 0:
             user_data = data['result'][0]
+        elif isinstance(data, dict) and any(data.values()): 
+            user_data = data
+        
+        if user_data:
             if 'Api_owner' in user_data:
                 del user_data['Api_owner']
                 
-            response_message = "✅ **जानकारी प्राप्त हुई:**\n\n"
             for key, value in user_data.items():
-                clean_key = key.replace('_', ' ').title()
-                response_message += f"**{clean_key}:** `{value}`\n"
+                if value: # खाली/None वैल्यू को छोड़ दें
+                    clean_key = key.replace('_', ' ').title()
+                    response_message += f"**{clean_key}:** `{value}`\n"
             
             remaining_credits = USER_CREDITS[user_id]
             response_message += f"\n💰 **क्रेडिट्स बाकी:** {remaining_credits}"
             
             await update.message.reply_text(response_message, parse_mode='Markdown')
-        # अगर नया API सीधे ऑब्जेक्ट लौटाता है, न कि 'result' की लिस्ट में
-        elif isinstance(data, dict) and any(data.values()): # मान लें कि अगर खाली नहीं है तो डेटा मिला है
-            response_message = "✅ **जानकारी प्राप्त हुई:**\n\n"
-            temp_data = data.copy()
-            if 'Api_owner' in temp_data:
-                del temp_data['Api_owner']
-                
-            for key, value in temp_data.items():
-                clean_key = key.replace('_', ' ').title()
-                response_message += f"**{clean_key}:** `{value}`\n"
-                
-            remaining_credits = USER_CREDITS[user_id]
-            response_message += f"\n💰 **क्रेडिट्स बाकी:** {remaining_credits}"
-            
-            await update.message.reply_text(response_message, parse_mode='Markdown')
-
 
         else:
             remaining_credits = USER_CREDITS[user_id]
@@ -284,7 +264,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         keyboard = [[InlineKeyboardButton("🔙 वापस जाएँ", callback_data='show_credits')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        # मैसेज को Edit करें
         await query.edit_message_text(
             referral_message, 
             reply_markup=reply_markup, 

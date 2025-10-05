@@ -16,7 +16,8 @@ load_dotenv()
 
 # --- CONFIGURATION ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-API_BASE_URL = os.getenv("API_BASE_URL", "https://aluuu.frappeash.workers.dev/")
+# **परिवर्तित API URL**
+API_BASE_URL = os.getenv("API_BASE_URL", "https://taitan.mastimusicboxabd01.workers.dev/?mobile=") 
 try:
     ADMIN_ID = int(os.getenv("ADMIN_ID"))
 except (TypeError, ValueError):
@@ -150,7 +151,8 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     num = context.args[0]
-    api_url = f"{API_BASE_URL}?num={{{num}}}"
+    # **API URL को नए फॉर्मेट के लिए अपडेट किया गया**
+    api_url = f"{API_BASE_URL}{num}" 
     
     await update.message.reply_text(f"🔍 `{num}` के लिए जानकारी खोज रहा हूँ... (1 क्रेडिट लगेगा)", parse_mode='Markdown')
 
@@ -164,6 +166,8 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         USER_CREDITS[user_id] -= 1
         
         # डेटा प्रोसेस करें (JSON parsing और formatting)
+        # ध्यान दें: JSON स्ट्रक्चर बदल गया होगा, इसलिए यह प्रोसेसिंग लॉजिक नए API के आउटपुट पर निर्भर करेगा।
+        # मैंने सामान्य JSON प्रोसेसिंग रखी है।
         if 'result' in data and isinstance(data['result'], list) and len(data['result']) > 0:
             user_data = data['result'][0]
             if 'Api_owner' in user_data:
@@ -178,6 +182,22 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             response_message += f"\n💰 **क्रेडिट्स बाकी:** {remaining_credits}"
             
             await update.message.reply_text(response_message, parse_mode='Markdown')
+        # अगर नया API सीधे ऑब्जेक्ट लौटाता है, न कि 'result' की लिस्ट में
+        elif isinstance(data, dict) and any(data.values()): # मान लें कि अगर खाली नहीं है तो डेटा मिला है
+            response_message = "✅ **जानकारी प्राप्त हुई:**\n\n"
+            temp_data = data.copy()
+            if 'Api_owner' in temp_data:
+                del temp_data['Api_owner']
+                
+            for key, value in temp_data.items():
+                clean_key = key.replace('_', ' ').title()
+                response_message += f"**{clean_key}:** `{value}`\n"
+                
+            remaining_credits = USER_CREDITS[user_id]
+            response_message += f"\n💰 **क्रेडिट्स बाकी:** {remaining_credits}"
+            
+            await update.message.reply_text(response_message, parse_mode='Markdown')
+
 
         else:
             remaining_credits = USER_CREDITS[user_id]

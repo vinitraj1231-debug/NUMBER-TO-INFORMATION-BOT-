@@ -26,7 +26,6 @@ load_dotenv()
 
 # --- CONFIGURATION ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-# ⭐ API URL सही है ⭐
 API_BASE_URL = os.getenv("API_BASE_URL", "https://encore.sahilraz9265.workers.dev/numbr?num=")
 try:
     ADMIN_ID = int(os.getenv("ADMIN_ID", "7524032836")) 
@@ -34,7 +33,7 @@ except (TypeError, ValueError):
     ADMIN_ID = None
     logger.error("ADMIN_ID is missing or invalid in .env file.")
 
-# Settings
+# Settings (No Change)
 DAILY_CREDITS_LIMIT = 3
 REFERRAL_CREDITS = 1 
 SUPPORT_CHANNEL_USERNAME = "narzoxbot"
@@ -56,7 +55,6 @@ DAILY_STATS = {"searches": 0, "new_users": 0, "referrals": 0}
 # --- Utility Functions (No Change) ---
 
 def load_data():
-    """JSON फाइल से डेटा लोड करें"""
     global USER_CREDITS, USERS, REFERRED_TRACKER, UNLIMITED_USERS, USER_SEARCH_HISTORY, DAILY_STATS
     try:
         if os.path.exists(DATA_FILE):
@@ -72,7 +70,6 @@ def load_data():
         logger.error(f"❌ Error loading data: {e}")
 
 def save_data():
-    """JSON फाइल में डेटा सेव करें"""
     try:
         data = {
             'credits': USER_CREDITS,
@@ -324,7 +321,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await update.message.reply_text(welcome_message, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
 
 async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/search कमांड हैंडलर"""
+    """/search कमांड हैंडलर (API त्रुटि हैंडलिंग में सुधार किया गया)"""
     user_id = update.effective_user.id
     save_user(user_id)
     
@@ -374,7 +371,6 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text("❌ कृपया कम से कम 10 अंकों का वैध मोबाइल नंबर दें।")
         return
     
-    # ⭐ नया API URL ⭐
     api_url = f"{API_BASE_URL}{num}"
     
     credit_msg = "" if is_unli else " (1 क्रेडिट लगेगा)"
@@ -386,14 +382,16 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
     
     try:
-        # ⭐ Timeout 15 सेकंड पर सेट किया गया है ⭐
         response = requests.get(api_url, timeout=15) 
-        response.raise_for_status()
+        response.raise_for_status() # HTTP 4xx/5xx errors के लिए
         
+        data = None
         try:
+            # ⭐ सुरक्षित JSON डिकोडिंग ⭐
             data = response.json()
         except json.JSONDecodeError:
-            raise ValueError("API returned invalid JSON format.")
+            # यदि API ने गैर-JSON या खाली रिस्पॉन्स दिया
+            raise json.JSONDecodeError("API returned invalid or empty JSON.", response.text, 0)
         
         # क्रेडिट घटाएं (यदि अनलिमिटेड नहीं है)
         if not is_unli:
@@ -406,7 +404,6 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         response_message = "✅ **जानकारी मिल गई!** 🎉\n\n"
         user_data = None
         
-        # ⭐ API रिस्पॉन्स को ठीक से प्रोसेस करें (data key में लिस्ट) ⭐
         if 'data' in data and isinstance(data['data'], list) and len(data['data']) > 0:
             user_data = data['data'][0] 
         elif isinstance(data, dict) and any(data.values()):
@@ -417,7 +414,6 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             
             response_message += "📋 **विवरण:**\n"
             
-            # सुनिश्चित करें कि सबसे महत्वपूर्ण keys पहले आएं
             key_order = ['name', 'mobile', 'fname', 'address', 'circle']
             
             for key in key_order:
@@ -460,7 +456,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             )
     
     except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
-        # ⭐ Timeout और Connection Error पर क्रेडिट वापस करें ⭐
+        # Timeout और Connection Error पर क्रेडिट वापस करें 
         if not is_unli:
             USER_CREDITS[user_id] += 1
             save_data()
@@ -474,7 +470,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             "आपका क्रेडिट वापस कर दिया गया है। ✅",
             parse_mode=ParseMode.MARKDOWN
         )
-        logger.error(f"API Connection Error for {num}: {e}")
+        logger.error(f"API Connection/Timeout Error for {num}: {e}")
     
     except requests.exceptions.HTTPError as e:
         # HTTP 4xx/5xx errors
@@ -482,7 +478,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             USER_CREDITS[user_id] += 1
             save_data()
         await searching_msg.edit_text(
-            "⚠️ **API एरर:**\n\n"
+            "⚠️ **API एरर: HTTP**\n\n"
             f"API ने **त्रुटि कोड {e.response.status_code}** लौटाया है।\n"
             "यह एक सर्वर-साइड समस्या हो सकती है।\n\n"
             "आपका क्रेडिट वापस कर दिया गया है। ✅",
@@ -490,20 +486,32 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
         logger.error(f"API HTTP Error for {num}: {e.response.status_code}")
 
+    except json.JSONDecodeError as e:
+        # ⭐ JSONDecodeError पर भी क्रेडिट वापस करें (नया सुधार) ⭐
+        if not is_unli:
+            USER_CREDITS[user_id] += 1
+            save_data()
+        await searching_msg.edit_text(
+            "❌ **API डेटा एरर: पार्स नहीं हो सका**\n\n"
+            "API ने एक अप्रत्याशित या अमान्य डेटा फॉर्मेट लौटाया।\n"
+            "कृपया बाद में फिर से प्रयास करें।\n\n"
+            "आपका क्रेडिट वापस कर दिया गया है। ✅",
+            parse_mode=ParseMode.MARKDOWN
+        )
+        logger.error(f"API JSON Decode Error for {num}: {e}")
+    
     except Exception as e:
         # अन्य सभी अनपेक्षित त्रुटियां
-        if not is_unli:
-            # हम यहां क्रेडिट वापस नहीं कर रहे हैं, क्योंकि यह कोड की आंतरिक त्रुटि हो सकती है।
-            # इसे सुरक्षित रखने के लिए हम सिर्फ एक संदेश दिखाते हैं।
-            pass
-        logger.error(f"Unexpected Error during search for {num}: {e}")
+        # इस स्थिति में, हम क्रेडिट को वापस नहीं करेंगे क्योंकि यह आंतरिक बॉट समस्या हो सकती है।
+        logger.error(f"Unexpected Critical Error during search for {num}: {e}")
         await searching_msg.edit_text(
-            "❌ **अनपेक्षित गलती!**\n\n"
+            "❌ **अनपेक्षित गंभीर गलती!**\n\n"
             "सर्च के दौरान कुछ गंभीर गलत हो गया।\n"
-            "कृपया बाद में फिर से प्रयास करें।\n\n"
-            "यदि यह समस्या बनी रहती है, तो **एडमिन से संपर्क करें।**"
+            "कृपया बाद में फिर से प्रयास करें।\n"
+            "तकनीकी विवरण: `Internal Bot Error`"
         )
 
+# --- Remaining Handlers (No change) ---
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = update.message.text.strip()
@@ -512,14 +520,15 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         context.args = [clean_num]
         await search_command(update, context)
 
-# --- Admin Commands (No change) ---
+# All Admin Commands and Button Handlers remain the same as they were fully functional.
 
 async def unlimited_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # ... (code omitted for brevity, remains unchanged)
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
         await update.message.reply_text("⚠️ **अस्वीकृत!** यह कमांड केवल एडमिन के लिए है।")
         return
-    
+    # ... (rest of the unlimited_command logic)
     if len(context.args) < 1:
         await update.message.reply_text(
             "📝 **Unlimited Access Command**\n\n"
@@ -532,16 +541,13 @@ async def unlimited_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             parse_mode=ParseMode.MARKDOWN
         )
         return
-    
     try:
         target_user_id = int(context.args[0])
     except ValueError:
         await update.message.reply_text("❌ Invalid User ID. Please provide a valid number.")
         return
-    
     expiry = "forever"
     duration_text = "हमेशा के लिए ♾️"
-    
     if len(context.args) > 1:
         time_str = context.args[1].lower()
         try:
@@ -563,15 +569,12 @@ async def unlimited_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         except ValueError:
             await update.message.reply_text("❌ Invalid time value.")
             return
-    
     UNLIMITED_USERS[target_user_id] = expiry
     save_data()
-    
     keyboard = [
         [InlineKeyboardButton("📊 View All Unlimited Users", callback_data='admin_unlimited_list')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    
     await update.message.reply_text(
         f"✅ **Unlimited Access Granted!** 👑\n\n"
         f"👤 **User ID:** `{target_user_id}`\n"
@@ -580,7 +583,6 @@ async def unlimited_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         reply_markup=reply_markup,
         parse_mode=ParseMode.MARKDOWN
     )
-    
     try:
         await context.bot.send_message(
             chat_id=target_user_id,
@@ -594,6 +596,7 @@ async def unlimited_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         logger.warning(f"Could not notify user {target_user_id} about unlimited access: {e}")
 
 async def remove_unlimited_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # ... (code omitted for brevity, remains unchanged)
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
         await update.message.reply_text("⚠️ **अस्वीकृत!** यह कमांड केवल एडमिन के लिए है।")
@@ -633,6 +636,7 @@ async def remove_unlimited_command(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text(f"❌ User `{target_user_id}` के पास unlimited access नहीं है।", parse_mode=ParseMode.MARKDOWN)
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # ... (code omitted for brevity, remains unchanged)
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
         await update.message.reply_text("⚠️ **अस्वीकृत!** यह कमांड केवल एडमिन के लिए है।")
@@ -643,7 +647,6 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     banned_users = len(BANNED_USERS)
     total_searches = DAILY_STATS.get("searches", 0)
     total_credits_used = sum(DAILY_CREDITS_LIMIT - USER_CREDITS.get(uid, 0) for uid in USERS if uid not in UNLIMITED_USERS)
-    
     keyboard = [
         [
             InlineKeyboardButton("👥 Top Users", callback_data='admin_top_users'),
@@ -655,7 +658,6 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    
     stats_message = (
         "📊 **Bot Statistics Dashboard**\n"
         "━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -671,10 +673,11 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         f"  • Referrals: {DAILY_STATS.get('referrals', 0)}\n\n"
         f"⏰ **Last Update:** {datetime.now().strftime('%d-%m-%Y %H:%M')}"
     )
-    
     await update.message.reply_text(stats_message, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
 
+
 async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # ... (code omitted for brevity, remains unchanged)
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
         await update.message.reply_text("⚠️ **अस्वीकृत!** यह कमांड केवल एडमिन के लिए है।")
@@ -690,14 +693,12 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     success_count = 0
     failure_count = 0
     blocked_count = 0
-    
     status_msg = await update.message.reply_text(
         f"⏳ **Broadcasting...**\n\n"
         f"👥 Target Users: {len(USERS)}\n"
         f"✅ Sent: 0\n"
         f"❌ Failed: 0"
     )
-    
     for idx, chat_id in enumerate(USERS):
         try:
             await context.bot.send_message(
@@ -722,7 +723,6 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         except Exception as e:
             failure_count += 1
             logger.info(f"Failed to send to {chat_id}: {e}")
-    
     final_message = (
         f"✅ **Broadcast Complete!**\n\n"
         f"📊 **Results:**\n"
@@ -734,6 +734,7 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     await status_msg.edit_text(final_message)
 
 async def add_credits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # ... (code omitted for brevity, remains unchanged)
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
         await update.message.reply_text("⚠️ **अस्वीकृत!** यह कमांड केवल एडमिन के लिए है।")
@@ -776,6 +777,7 @@ async def add_credits_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         pass
 
 async def ban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # ... (code omitted for brevity, remains unchanged)
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
         await update.message.reply_text("⚠️ **अस्वीकृत!** यह कमांड केवल एडमिन के लिए है।")
@@ -811,6 +813,7 @@ async def ban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         pass
 
 async def unban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # ... (code omitted for brevity, remains unchanged)
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
         await update.message.reply_text("⚠️ **अस्वीकृत!** यह कमांड केवल एडमिन के लिए है।")
@@ -838,12 +841,10 @@ async def unban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     else:
         await update.message.reply_text(f"❌ User `{target_user_id}` banned नहीं है।", parse_mode=ParseMode.MARKDOWN)
 
-# --- Button Handler (No change, as it was already correct) ---
-
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # ... (code omitted for brevity, remains unchanged)
     query = update.callback_query
     await query.answer()
-    
     user_id = query.from_user.id
     save_user(user_id)
     bot_username = context.bot.username
@@ -1106,7 +1107,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         
         await query.edit_message_text(welcome_message, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
     
-    # Admin Buttons (no change)
     elif query.data == 'admin_stats' and user_id == ADMIN_ID:
         await stats_command(update.callback_query.message, context)
     

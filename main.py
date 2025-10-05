@@ -1302,8 +1302,6 @@ def main() -> None:
     application.add_handler(CommandHandler("ban", ban_command))
     application.add_handler(CommandHandler("unban", unban_command))
     
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
-    
     application.add_handler(CallbackQueryHandler(button_handler))
     
     print("=" * 50)

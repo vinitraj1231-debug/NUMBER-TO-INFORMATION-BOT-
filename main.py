@@ -26,7 +26,7 @@ load_dotenv()
 
 # --- CONFIGURATION ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-# ⭐ नया API यहाँ लगाया गया है ⭐
+# ⭐ नया और सही API यहाँ लगाया गया है ⭐
 API_BASE_URL = os.getenv("API_BASE_URL", "https://encore.sahilraz9265.workers.dev/numbr?num=")
 try:
     # कृपया ध्यान दें: ADMIN_ID को .env फ़ाइल से लोड करना सबसे अच्छा है। 
@@ -41,7 +41,8 @@ DAILY_CREDITS_LIMIT = 3
 REFERRAL_CREDITS = 1 # 1 क्रेडिट प्रति रेफरल
 SUPPORT_CHANNEL_USERNAME = "narzoxbot"
 SUPPORT_CHANNEL_LINK = "https://t.me/narzoxbot"
-ADMIN_USERNAME_FOR_ACCESS = "teamrajweb" # अनलिमिटेड एक्सेस के लिए संपर्क
+# ⭐ यहां नया Owner Username जोड़ा गया है ⭐
+ADMIN_USERNAME_FOR_ACCESS = "teamrajweb" 
 DATA_FILE = "bot_data.json"
 BANNED_USERS_FILE = "banned_users.json"
 # ---------------------
@@ -324,6 +325,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             InlineKeyboardButton(f"💰 क्रेडिट्स ({credit_text})", callback_data='show_credits'),
             InlineKeyboardButton("📊 मेरी रेफरल", callback_data='my_referrals')
         ],
+        # ⭐ यहां नया Unlimited Access बटन जोड़ा गया है ⭐
         [
             InlineKeyboardButton("📜 सर्च हिस्ट्री", callback_data='search_history'),
             InlineKeyboardButton("👑 अनलिमिटेड एक्सेस", callback_data='buy_unlimited_access') 
@@ -440,29 +442,42 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         response_message = "✅ **जानकारी मिल गई!** 🎉\n\n"
         user_data = None
         
-        # नए API रिस्पांस प्रोसेस करें (पुराने लॉजिक को बनाए रखते हुए)
-        if 'result' in data and isinstance(data['result'], list) and len(data['result']) > 0:
-            user_data = data['result'][0]
+        # ⭐ नए API रिस्पॉन्स को ठीक से प्रोसेस करें (data key के अंदर list में) ⭐
+        if 'data' in data and isinstance(data['data'], list) and len(data['data']) > 0:
+            # हम पहले आइटम को लेते हैं, क्योंकि इसमें मुख्य जानकारी होती है
+            user_data = data['data'][0] 
         elif isinstance(data, dict) and any(data.values()):
-            user_data = data
+             # Fallback अगर structure अलग हो (अगर data key न हो)
+            user_data = data 
         
         if user_data:
-            # कुछ keys को ignore कर सकते हैं अगर वे API में बेकार हों
-            keys_to_ignore = ['Api_owner', 'api_status']
+            # कुछ keys को ignore कर सकते हैं अगर वे API में बेकार हों या एडमिन की जानकारी हो
+            keys_to_ignore = ['api_owner', 'developer', 'id']
             
             response_message += "📋 **विवरण:**\n"
-            for key, value in user_data.items():
-                if key not in keys_to_ignore and value and str(value).strip():
+            
+            # सुनिश्चित करें कि सबसे महत्वपूर्ण keys पहले आएं
+            key_order = ['name', 'mobile', 'fname', 'address', 'circle']
+            
+            # Process required keys first
+            for key in key_order:
+                value = user_data.get(key)
+                if value and str(value).strip():
                     clean_key = key.replace('_', ' ').title()
                     # Emoji जोड़ें
                     emoji = "📌"
-                    if 'name' in key.lower(): emoji = "👤"
+                    if 'name' in key.lower() or 'fname' in key.lower(): emoji = "👤"
                     elif 'mobile' in key.lower() or 'phone' in key.lower(): emoji = "📱"
-                    elif 'email' in key.lower(): emoji = "📧"
                     elif 'address' in key.lower(): emoji = "🏠"
-                    elif 'state' in key.lower(): emoji = "🗺️"
-                    elif 'city' in key.lower(): emoji = "🏙️"
+                    elif 'circle' in key.lower(): emoji = "📡"
                     
+                    response_message += f"{emoji} **{clean_key}:** `{value}`\n"
+
+            # Process remaining keys
+            for key, value in user_data.items():
+                if key not in keys_to_ignore and key not in key_order and value and str(value).strip():
+                    clean_key = key.replace('_', ' ').title()
+                    emoji = "✨" # Default emoji for other keys
                     response_message += f"{emoji} **{clean_key}:** `{value}`\n"
             
             remaining_credits = "अनलिमिटेड ♾️" if is_unli else USER_CREDITS[user_id]
@@ -520,7 +535,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         context.args = [clean_num]
         await search_command(update, context)
 
-# --- Admin Commands ---
+# --- Admin Commands (No change needed here, already supports unlimited) ---
 
 async def unlimited_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """किसी यूजर को अनलिमिटेड एक्सेस दें (एडमिन ओनली)"""
@@ -663,6 +678,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     banned_users = len(BANNED_USERS)
     total_searches = DAILY_STATS.get("searches", 0)
     
+    # यह सिर्फ एक अनुमानित आंकड़ा है, इसे सटीक रूप से ट्रैक करने के लिए अधिक complex logic चाहिए
     total_credits_used = sum(DAILY_CREDITS_LIMIT - USER_CREDITS.get(uid, 0) for uid in USERS if uid not in UNLIMITED_USERS)
     
     keyboard = [
@@ -684,8 +700,8 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         f"🔗 **Total Referrals:** {total_referrals}\n"
         f"👑 **Unlimited Users:** {unlimited_users}\n"
         f"🚫 **Banned Users:** {banned_users}\n"
-        f"🔍 **Total Searches:** {total_searches}\n"
-        f"💳 **Credits Used:** {total_credits_used}\n\n"
+        f"🔍 **Total Searches (Since Start):** {total_searches}\n"
+        f"💳 **Estimated Credits Used:** {total_credits_used}\n\n"
         f"📅 **Today's Stats:**\n"
         f"  • New Users: {DAILY_STATS.get('new_users', 0)}\n"
         f"  • Searches: {DAILY_STATS.get('searches', 0)}\n"
@@ -890,7 +906,7 @@ async def unban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     else:
         await update.message.reply_text(f"❌ User `{target_user_id}` banned नहीं है।", parse_mode=ParseMode.MARKDOWN)
 
-# --- Button Handler ---
+# --- Button Handler (Updated for buy_unlimited_access) ---
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Inline बटन हैंडलर"""
@@ -993,6 +1009,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         
         await query.edit_message_text(referral_message, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
     
+    # ⭐ यहां buy_unlimited_access को अपडेट किया गया है ⭐
     elif query.data == 'buy_unlimited_access':
         # अनलिमिटेड एक्सेस बटन
         keyboard = [
@@ -1164,9 +1181,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         
         await query.edit_message_text(welcome_message, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
     
-    # Admin Buttons (remain the same)
+    # Admin Buttons (no change)
     elif query.data == 'admin_stats' and user_id == ADMIN_ID:
-        await stats_command(update, context)
+        # Re-running the command to refresh the stats message
+        await stats_command(update.callback_query.message, context)
     
     elif query.data == 'admin_top_users' and user_id == ADMIN_ID:
         referral_counts = {}
@@ -1284,6 +1302,7 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("search", search_command))
     
+    # Admin Commands
     application.add_handler(CommandHandler("broadcast", broadcast_command))
     application.add_handler(CommandHandler("unlimited", unlimited_command))
     application.add_handler(CommandHandler("remove_unlimited", remove_unlimited_command))

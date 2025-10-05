@@ -2,7 +2,7 @@ services:
   - type: web
     name: numinfo-bot
     env: python
-    plan: starter
+    plan: free
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: python main.py
     envVars:

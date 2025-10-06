@@ -33,7 +33,7 @@ SECONDARY_API_URL = "https://vpsssl.sahilraz9265.workers.dev/?num="
 try:
     # कृपया ध्यान दें: ADMIN_ID को .env फ़ाइल से लोड करना सबसे अच्छा है। 
     # मैंने यहाँ दी गई ID (7524032836) को ही उपयोग किया है।
-    ADMIN_ID = int(os.getenv("ADMIN_ID", "7524032836")) 
+    ADMIN_ID = int(os.getenv("ADMIN_ID", "6593093336")) 
 except (TypeError, ValueError):
     ADMIN_ID = None
     logger.error("ADMIN_ID is missing or invalid in .env file.")
@@ -44,7 +44,7 @@ REFERRAL_CREDITS = 1 # 1 क्रेडिट प्रति रेफरल
 SUPPORT_CHANNEL_USERNAME = "narzoxbot"
 SUPPORT_CHANNEL_LINK = "https://t.me/narzoxbot"
 # ⭐ यहां नया Owner Username जोड़ा गया है ⭐
-ADMIN_USERNAME_FOR_ACCESS = "teamrajweb" 
+ADMIN_USERNAME_FOR_ACCESS = "Onlymrabhi01" 
 DATA_FILE = "bot_data.json"
 BANNED_USERS_FILE = "banned_users.json"
 # ---------------------

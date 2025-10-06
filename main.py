@@ -399,9 +399,9 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             "⚠️ **गलत तरीका!**\n\n"
             "कृपया `/search` के बाद एक नंबर दें।\n\n"
             "**सही तरीका:**\n"
-            "`/search 9798423774`\n\n"
-            "**या सीधे नंबर भेजें:**\n"
-            "`9798423774`",
+            "`/search 979842655`\n\n"
+            "**या सीधे नंबर भेजें aage /search 839393939:**\n"
+            "`83839 no `",
             parse_mode=ParseMode.MARKDOWN
         )
         return

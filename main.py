@@ -27,9 +27,9 @@ load_dotenv()
 # --- CONFIGURATION ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 # ⭐ नया और सही API यहाँ लगाया गया है ⭐
-API_BASE_URL = os.getenv("API_BASE_URL", "https://vpsssl.sahilraz9265.workers.dev/?num=")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://taitan.mastimusicboxabd01.workers.dev/?mobile=")
 # ⭐ दूसरा API यहाँ जोड़ा गया है ⭐
-SECONDARY_API_URL = "https://vpsssl.sahilraz9265.workers.dev/?num="
+SECONDARY_API_URL = "https://taitan.mastimusicboxabd01.workers.dev/?mobile="
 try:
     # कृपया ध्यान दें: ADMIN_ID को .env फ़ाइल से लोड करना सबसे अच्छा है। 
     # मैंने यहाँ दी गई ID (7524032836) को ही उपयोग किया है।

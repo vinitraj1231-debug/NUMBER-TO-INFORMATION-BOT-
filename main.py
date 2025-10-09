@@ -33,7 +33,7 @@ SECONDARY_API_URL = "https://taitan.mastimusicboxabd01.workers.dev/?mobile="
 try:
     # कृपया ध्यान दें: ADMIN_ID को .env फ़ाइल से लोड करना सबसे अच्छा है। 
     # मैंने यहाँ दी गई ID (7524032836) को ही उपयोग किया है।
-    ADMIN_ID = int(os.getenv("ADMIN_ID", "6593093336")) 
+    ADMIN_ID = int(os.getenv("ADMIN_ID", "7524032836")) 
 except (TypeError, ValueError):
     ADMIN_ID = None
     logger.error("ADMIN_ID is missing or invalid in .env file.")

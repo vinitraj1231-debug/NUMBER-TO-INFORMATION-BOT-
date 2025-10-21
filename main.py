@@ -27,9 +27,9 @@ load_dotenv()
 # --- CONFIGURATION ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 # ⭐ नया और सही API यहाँ लगाया गया है ⭐
-API_BASE_URL = os.getenv("API_BASE_URL", "https://encore.sahilraz9265.workers.dev/num-lookup?numapi=")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://zionixxnum-7890.zioniiixx.workers.dev/?num=")
 # ⭐ दूसरा API यहाँ जोड़ा गया है ⭐
-SECONDARY_API_URL = "https://encore.sahilraz9265.workers.dev/num-lookup?numapi="
+SECONDARY_API_URL = "https://zionixxnum-7890.zioniiixx.workers.dev/?num="
 try:
     # कृपया ध्यान दें: ADMIN_ID को .env फ़ाइल से लोड करना सबसे अच्छा है। 
     # मैंने यहाँ दी गई ID (7524032836) को ही उपयोग किया है।

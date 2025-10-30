@@ -44,7 +44,7 @@ REFERRAL_CREDITS = 1 # 1 क्रेडिट प्रति रेफरल
 SUPPORT_CHANNEL_USERNAME = "narzoxbot"
 SUPPORT_CHANNEL_LINK = "https://t.me/narzoxbot"
 # ⭐ यहां नया Owner Username जोड़ा गया है ⭐
-ADMIN_USERNAME_FOR_ACCESS = "Onlymrabhi01" 
+ADMIN_USERNAME_FOR_ACCESS = "@Narzoceo" 
 DATA_FILE = "bot_data.json"
 BANNED_USERS_FILE = "banned_users.json"
 # ---------------------
